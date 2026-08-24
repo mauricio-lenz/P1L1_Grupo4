@@ -173,4 +173,4 @@ results/ JSON de verificacion y figuras
 
 Laboratorio P1L1 completo: ambos casos reproducen con errores a nivel de
 precision de maquina (~1e-15), 9/9 pruebas pasan y las salidas JSON + figuras
-estan generadas.
+estan generadas. Estado actual. 
