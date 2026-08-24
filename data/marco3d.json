@@ -1,0 +1,37 @@
+{
+    "nombre": "marco_3d",
+    "descripcion": "Marco 3D minimo: dos columnas de 4 m (empotradas en la base) separadas 6 m en X, unidas por una viga en la parte superior. Carga vertical de 20 kN hacia abajo en cada nodo superior y carga lateral total de 100 kN en +X repartida en los dos nodos superiores.",
+    "unidades": {
+        "longitud": "m",
+        "fuerza": "kN",
+        "modulo": "kN/m2",
+        "momento": "kN*m"
+    },
+    "secciones": {
+        "C40x40": {"b": 0.40, "h": 0.40, "E": 25.0e6, "nu": 0.20, "J": 0.0036},
+        "B30x50": {"b": 0.30, "h": 0.50, "E": 25.0e6, "nu": 0.20, "J": 0.0028}
+    },
+    "transformaciones": {
+        "columna_z": {"vecxz": [0.0, 1.0, 0.0]},
+        "viga_x": {"vecxz": [0.0, 0.0, 1.0]}
+    },
+    "nodos": {
+        "1": [0.0, 0.0, 0.0],
+        "2": [6.0, 0.0, 0.0],
+        "3": [0.0, 0.0, 4.0],
+        "4": [6.0, 0.0, 4.0]
+    },
+    "apoyos": {
+        "1": [1, 1, 1, 1, 1, 1],
+        "2": [1, 1, 1, 1, 1, 1]
+    },
+    "elementos": [
+        {"tag": 11, "i": 1, "j": 3, "seccion": "C40x40", "transf": "columna_z", "tipo": "columna"},
+        {"tag": 12, "i": 2, "j": 4, "seccion": "C40x40", "transf": "columna_z", "tipo": "columna"},
+        {"tag": 21, "i": 3, "j": 4, "seccion": "B30x50", "transf": "viga_x", "tipo": "viga"}
+    ],
+    "cargas_nodales": [
+        {"nodo": 3, "fxyz": [50.0, 0.0, -20.0], "mxyz": [0.0, 0.0, 0.0]},
+        {"nodo": 4, "fxyz": [50.0, 0.0, -20.0], "mxyz": [0.0, 0.0, 0.0]}
+    ]
+}

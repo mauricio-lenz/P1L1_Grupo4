@@ -1,0 +1,29 @@
+{
+    "nombre": "voladizo_3d",
+    "descripcion": "Voladizo 3D del tutorial de OpenSees (benchmark Semana 1): viga empotrada en el extremo I y carga vertical P=10 kN hacia abajo en el extremo J, sobre el eje global X.",
+    "unidades": {
+        "longitud": "m",
+        "fuerza": "kN",
+        "modulo": "kN/m2",
+        "momento": "kN*m"
+    },
+    "secciones": {
+        "B30x50": {"b": 0.30, "h": 0.50, "E": 25.0e6, "nu": 0.20, "J": 0.002}
+    },
+    "transformaciones": {
+        "viga_x": {"vecxz": [0.0, 0.0, 1.0]}
+    },
+    "nodos": {
+        "1": [0.0, 0.0, 0.0],
+        "2": [3.0, 0.0, 0.0]
+    },
+    "apoyos": {
+        "1": [1, 1, 1, 1, 1, 1]
+    },
+    "elementos": [
+        {"tag": 1, "i": 1, "j": 2, "seccion": "B30x50", "transf": "viga_x", "tipo": "viga"}
+    ],
+    "cargas_nodales": [
+        {"nodo": 2, "fxyz": [0.0, 0.0, -10.0], "mxyz": [0.0, 0.0, 0.0]}
+    ]
+}
