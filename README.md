@@ -1,4 +1,4 @@
-# P1L1-lenz-mauricio
+# P1L1_Grupo4
 
 P1L1 - LAB: benchmark 3D OpenSees. Construccion y verificacion cuantitativa de
 casos estructurales 3D en OpenSeesPy, con extraccion de desplazamientos,
@@ -26,7 +26,7 @@ SI coherente en todo el proyecto:
 
 ```powershell
 git clone <URL-del-repo>.git
-cd P1L1-lenz-mauricio
+cd P1L1_Grupo4
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
