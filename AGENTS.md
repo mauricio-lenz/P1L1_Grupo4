@@ -2,24 +2,23 @@
 
 Instrucciones para que OpenCode trabaje en este repositorio.
 
-## Proposito del proyecto
+## Propósito del proyecto
 
-Estructura simple de hormigon armado con losa maciza modelada con
-elementos shell (shellMITC4) en OpenSeesPy.
-Analisis elastico lineal del peso propio de la losa, demostrando
-la transferencia de esfuerzos: losa -> vigas -> columnas.
+Pórtico 3D de hormigón armado (1 piso, 1 vano, 3×6 m) analizado con OpenSeesPy.
+El peso propio de la losa se aplica como carga distribuida en vigas via
+`eleLoad -beamUniform`, demostrando el camino de carga: losa → vigas → columnas.
 
 ## Sistema de unidades
 
-SI coherente: longitud m, fuerza kN, tension/modulo kN/m2, momento kN*m.
+SI coherente: longitud m, fuerza kN, tensión/módulo kN/m², momento kN·m.
 No mezclar nunca m con mm ni kN con N.
 
 ## Reglas
 
-- Mantener el codigo sencillo y legible.
-- Los datos de la estructura estan en `data/estructura_simple.json`.
-- El modelo completo (malla, elementos, analisis) esta en `src/simple_analysis.py`.
+- Mantener el código sencillo y legible.
+- Los datos del pórtico están en `data/portico_3d.json`.
+- El modelo completo está en `src/portico_3d.py`.
 - No inventar mediciones: todos los valores deben salir de ejecuciones reales.
-- Ejecutar el analisis: `python -m src.simple_analysis`.
-- No ejecutar comandos destructivos de Git sin permiso explicito.
-- No subir credenciales ni informacion sensible.
+- Ejecutar el análisis: `python -m src.portico_3d`.
+- No ejecutar comandos destructivos de Git sin permiso explícito.
+- No subir credenciales ni información sensible.
