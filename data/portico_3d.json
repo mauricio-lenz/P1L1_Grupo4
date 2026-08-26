@@ -1,0 +1,43 @@
+{
+    "nombre": "portico_3d",
+    "descripcion": "Portico 3D simple: 1 piso, 1 vano (3x6 m), altura 3 m. Cargas de losa via eleLoad -beamUniform.",
+    "material": {
+        "E": 23500000.0,
+        "nu": 0.20
+    },
+    "secciones": {
+        "columna": { "b": 0.30, "h": 0.30 },
+        "viga": { "b": 0.20, "h": 0.40 }
+    },
+    "nodos": {
+        "1": [0.0, 0.0, 0.0],
+        "2": [3.0, 0.0, 0.0],
+        "3": [3.0, 6.0, 0.0],
+        "4": [0.0, 6.0, 0.0],
+        "5": [0.0, 0.0, 3.0],
+        "6": [3.0, 0.0, 3.0],
+        "7": [3.0, 6.0, 3.0],
+        "8": [0.0, 6.0, 3.0]
+    },
+    "apoyos": {
+        "1": [1, 1, 1, 1, 1, 1],
+        "2": [1, 1, 1, 1, 1, 1],
+        "3": [1, 1, 1, 1, 1, 1],
+        "4": [1, 1, 1, 1, 1, 1]
+    },
+    "geomTransf": {
+        "columnas": { "tag": 1, "vecxz": [1, 0, 0] },
+        "vigas_x": { "tag": 2, "vecxz": [0, 0, 1] },
+        "vigas_y": { "tag": 3, "vecxz": [0, 0, 1] }
+    },
+    "elementos": [
+        { "tag": 1, "i": 1, "j": 5, "seccion": "columna", "tipo": "columna", "transf": "columnas" },
+        { "tag": 2, "i": 2, "j": 6, "seccion": "columna", "tipo": "columna", "transf": "columnas" },
+        { "tag": 3, "i": 3, "j": 7, "seccion": "columna", "tipo": "columna", "transf": "columnas" },
+        { "tag": 4, "i": 4, "j": 8, "seccion": "columna", "tipo": "columna", "transf": "columnas" },
+        { "tag": 5, "i": 5, "j": 6, "seccion": "viga", "tipo": "viga_corta", "transf": "vigas_x", "carga_wy": 0.0, "carga_wz": -2.8125 },
+        { "tag": 6, "i": 6, "j": 7, "seccion": "viga", "tipo": "viga_larga", "transf": "vigas_y", "carga_wy": 0.0, "carga_wz": -4.21875 },
+        { "tag": 7, "i": 7, "j": 8, "seccion": "viga", "tipo": "viga_corta", "transf": "vigas_x", "carga_wy": 0.0, "carga_wz": -2.8125 },
+        { "tag": 8, "i": 8, "j": 5, "seccion": "viga", "tipo": "viga_larga", "transf": "vigas_y", "carga_wy": 0.0, "carga_wz": -4.21875 }
+    ]
+}
