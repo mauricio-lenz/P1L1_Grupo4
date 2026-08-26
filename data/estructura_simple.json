@@ -1,0 +1,48 @@
+{
+    "nombre": "estructura_simple",
+    "descripcion": "Estructura simple: 4 columnas, 4 vigas, 1 losa. Planta 4x4 m, altura 3 m.",
+    "unidades": {
+        "longitud": "m",
+        "fuerza": "kN",
+        "modulo": "kN/m2",
+        "momento": "kN*m"
+    },
+    "material": {
+        "E": 23500000.0,
+        "nu": 0.20,
+        "gamma": 25.0
+    },
+    "secciones": {
+        "columna": {"b": 0.30, "h": 0.30},
+        "viga": {"b": 0.20, "h": 0.40}
+    },
+    "losa": {
+        "espesor": 0.15
+    },
+    "nodos": {
+        "1": [0.0, 0.0, 0.0],
+        "2": [4.0, 0.0, 0.0],
+        "3": [4.0, 4.0, 0.0],
+        "4": [0.0, 4.0, 0.0],
+        "5": [0.0, 0.0, 3.0],
+        "6": [4.0, 0.0, 3.0],
+        "7": [4.0, 4.0, 3.0],
+        "8": [0.0, 4.0, 3.0]
+    },
+    "apoyos": {
+        "1": [1, 1, 1, 1, 1, 1],
+        "2": [1, 1, 1, 1, 1, 1],
+        "3": [1, 1, 1, 1, 1, 1],
+        "4": [1, 1, 1, 1, 1, 1]
+    },
+    "elementos": [
+        {"tag": 1, "i": 1, "j": 5, "seccion": "columna", "tipo": "columna"},
+        {"tag": 2, "i": 2, "j": 6, "seccion": "columna", "tipo": "columna"},
+        {"tag": 3, "i": 3, "j": 7, "seccion": "columna", "tipo": "columna"},
+        {"tag": 4, "i": 4, "j": 8, "seccion": "columna", "tipo": "columna"},
+        {"tag": 5, "i": 5, "j": 6, "seccion": "viga", "tipo": "viga"},
+        {"tag": 6, "i": 6, "j": 7, "seccion": "viga", "tipo": "viga"},
+        {"tag": 7, "i": 7, "j": 8, "seccion": "viga", "tipo": "viga"},
+        {"tag": 8, "i": 8, "j": 5, "seccion": "viga", "tipo": "viga"}
+    ]
+}
