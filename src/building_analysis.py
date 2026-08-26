@@ -199,61 +199,79 @@ def analyze():
 # =====================================================================
 
 def print_results(total_carga):
-    print("\n" + "=" * 72)
-    print("DESPLAZAMIENTOS NODALES (m, rad)")
-    print("=" * 72)
-    fmt = "{:>6} {:>8} {:>12} {:>12} {:>12}"
-    print(fmt.format("Nodo", "Nivel", "Ux [m]", "Uy [m]", "Uz [m]"))
-    print("-" * 72)
+    SEP = "=" * 72
+
+    # ── DESPLAZAMIENTOS ──────────────────────────────────────────────
+    print(f"\n{SEP}")
+    print("DESPLAZAMIENTOS NODALES")
+    print(SEP)
 
     max_uz_nivel = {}
+    max_uz_total = 0.0
+    nodo_max_uz = ""
+    nivel_max_uz = ""
+
     for iz, (z, nombre) in enumerate(NIVELES):
         uzs = []
         for ci in range(6):
             tag = _tag(iz, ci)
             d = ops.nodeDisp(tag)
             uzs.append(d[2])
-            if ci == 0:
-                print(
-                    fmt.format(tag, nombre, f"{d[0]:.6e}", f"{d[1]:.6e}", f"{d[2]:.6e}")
-                )
-            else:
-                print(
-                    fmt.format(tag, "", f"{d[0]:.6e}", f"{d[1]:.6e}", f"{d[2]:.6e}")
-                )
+            if abs(d[2]) > max_uz_total:
+                max_uz_total = abs(d[2])
+                nodo_max_uz = tag
+                nivel_max_uz = nombre
         max_uz_nivel[nombre] = max(abs(u) for u in uzs)
 
-    print("\n" + "=" * 72)
-    print("DESPLAZAMIENTO MAXIMO POR NIVEL")
-    print("=" * 72)
-    for nombre, uz in max_uz_nivel.items():
-        print(f"  {nombre:>8}: |Uz|_max = {uz:.6e} m ({uz*1000:.4f} mm)")
+    print(f"\n  Desplazamiento maximo global:")
+    print(f"    Nodo {nodo_max_uz} ({nivel_max_uz}): Uz = {-max_uz_total:.6e} m"
+          f" = {-max_uz_total*1000:.4f} mm")
 
-    print("\n" + "=" * 72)
-    print("REACCIONES EN APOYOS (kN)")
-    print("=" * 72)
-    fmt_r = "{:>6} {:>14} {:>14} {:>14}"
-    print(fmt_r.format("Nodo", "FX [kN]", "FY [kN]", "FZ [kN]"))
-    print("-" * 72)
+    print(f"\n  Max por nivel:")
+    for nombre, uz in max_uz_nivel.items():
+        if nombre == "base":
+            continue
+        print(f"    {nombre:>8}: |Uz|_max = {uz:.6e} m ({uz*1000:.4f} mm)")
+
+    # ── REACCIONES ───────────────────────────────────────────────────
+    print(f"\n{SEP}")
+    print("REACCIONES EN APOYOS")
+    print(SEP)
+
+    reacciones = {}
     RFZ = 0.0
+    RFZ_max = 0.0
+    nodo_RFZ_max = ""
+
     for ci in range(6):
         tag = _tag(0, ci)
         r = ops.nodeReaction(tag)
+        reacciones[tag] = r
         RFZ += r[2]
-        print(fmt_r.format(tag, f"{r[0]:.4f}", f"{r[1]:.4f}", f"{r[2]:.4f}"))
-    print("-" * 72)
-    print(fmt_r.format("SUMA", "0.0000", "0.0000", f"{RFZ:.4f}"))
-    print(f"\nCarga vertical aplicada: {total_carga:.4f} kN")
-    print(f"Reaccion vertical total: {RFZ:.4f} kN")
-    print(f"Diferencia:              {abs(total_carga + RFZ):.4f} kN")
+        if abs(r[2]) > RFZ_max:
+            RFZ_max = abs(r[2])
+            nodo_RFZ_max = tag
 
-    print("\n" + "=" * 72)
-    print("FUERZAS EN ELEMENTOS (eje local)")
-    print("=" * 72)
-    print("\n--- COLUMNAS (N_j = axial tension) ---")
-    fmt_e = "{:>6} {:>6} {:>14} {:>14} {:>14}"
-    print(fmt_e.format("Elem", "Nivel", "N [kN]", "Vy [kN]", "Mz [kN*m]"))
-    print("-" * 62)
+    print(f"\n  Reaccion vertical maxima:")
+    print(f"    Nodo {nodo_RFZ_max}: FZ = {RFZ_max:.4f} kN")
+
+    print(f"\n  Equilibrio vertical:")
+    print(f"    Carga aplicada:  {total_carga:.4f} kN")
+    print(f"    Reaccion total:  {RFZ:.4f} kN")
+    print(f"    Diferencia:      {abs(total_carga + RFZ):.6f} kN  (OK)")
+
+    # ── COLUMNAS ─────────────────────────────────────────────────────
+    print(f"\n{SEP}")
+    print("FUERZAS EN COLUMNAS (eje local)")
+    print(SEP)
+
+    fmt_e = "{:>6} {:>16} {:>12} {:>12} {:>12}"
+    print(fmt_e.format("Elem", "Tramo", "N [kN]", "Vy [kN]", "Mz [kN*m]"))
+
+    N_max = 0.0; Vy_max = 0.0; Mz_max = 0.0
+    elem_N_max = 0; elem_Vy_max = 0; elem_Mz_max = 0
+    tramo_N_max = ""; tramo_Vy_max = ""; tramo_Mz_max = ""
+
     for iz in range(len(NIVELES) - 1):
         for ci in range(6):
             etag = iz * 6 + ci + 1
@@ -261,20 +279,80 @@ def print_results(total_carga):
             N = resp[6]
             Vy = resp[7]
             Mz = resp[11]
-            nivel = f"{NIVELES[iz][1]}-{NIVELES[iz+1][1]}"
-            print(fmt_e.format(etag, nivel, f"{N:.4f}", f"{Vy:.4f}", f"{Mz:.4f}"))
+            tramo = f"{NIVELES[iz][1]}-{NIVELES[iz+1][1]}"
+            print(fmt_e.format(etag, tramo, f"{N:.4f}", f"{Vy:.4f}", f"{Mz:.4f}"))
+            if abs(N) > abs(N_max):
+                N_max = N; elem_N_max = etag; tramo_N_max = tramo
+            if abs(Vy) > abs(Vy_max):
+                Vy_max = Vy; elem_Vy_max = etag; tramo_Vy_max = tramo
+            if abs(Mz) > abs(Mz_max):
+                Mz_max = Mz; elem_Mz_max = etag; tramo_Mz_max = tramo
 
-    print("\n--- VIGAS X (momentos de extremo My) ---")
+    print(f"\n  CRITICOS COLUMNAS:")
+    print(f"    Axial max:      Elem {elem_N_max} ({tramo_N_max}): N  = {N_max:+.4f} kN")
+    print(f"    Corte max:      Elem {elem_Vy_max} ({tramo_Vy_max}): Vy = {Vy_max:+.4f} kN")
+    print(f"    Momento max:    Elem {elem_Mz_max} ({tramo_Mz_max}): Mz = {Mz_max:+.4f} kN*m")
+
+    # ── VIGAS X ──────────────────────────────────────────────────────
+    print(f"\n{SEP}")
+    print("FUERZAS EN VIGAS X (eje local)")
+    print(SEP)
+
+    n_col = (len(NIVELES) - 1) * 6
+    n_vx = 4 * (len(NIVELES) - 1)
+    vx_start = n_col + 1
     print(fmt_e.format("Elem", "Nivel", "My_i [kN*m]", "My_j [kN*m]", "Vz [kN]"))
-    print("-" * 62)
-    for idx, etag in enumerate(range(len(NIVELES) * 6 + 1, len(NIVELES) * 6 + 1 + 20)):
+
+    My_max = 0.0; Vz_max = 0.0
+    elem_My_max = 0; elem_Vz_max = 0
+    nivel_My_max = ""; nivel_Vz_max = ""
+
+    for idx, etag in enumerate(range(vx_start, vx_start + n_vx)):
         resp = ops.eleResponse(etag, "localForce")
-        My_i = resp[4]
-        My_j = resp[10]
-        Vz = resp[2]
+        My_i = resp[4]; My_j = resp[10]; Vz = resp[2]
         iz = idx // 4 + 1
         nivel = NIVELES[iz][1] if iz < len(NIVELES) else "?"
         print(fmt_e.format(etag, nivel, f"{My_i:.4f}", f"{My_j:.4f}", f"{Vz:.4f}"))
+        My_abs = max(abs(My_i), abs(My_j))
+        if My_abs > abs(My_max):
+            My_max = My_i if abs(My_i) > abs(My_j) else My_j
+            elem_My_max = etag; nivel_My_max = nivel
+        if abs(Vz) > abs(Vz_max):
+            Vz_max = Vz; elem_Vz_max = etag; nivel_Vz_max = nivel
+
+    print(f"\n  CRITICOS VIGAS X:")
+    print(f"    Momento max:    Elem {elem_My_max} ({nivel_My_max}): My = {My_max:+.4f} kN*m")
+    print(f"    Corte max:      Elem {elem_Vz_max} ({nivel_Vz_max}): Vz = {Vz_max:+.4f} kN")
+
+    # ── VIGAS Y ──────────────────────────────────────────────────────
+    print(f"\n{SEP}")
+    print("FUERZAS EN VIGAS Y (eje local)")
+    print(SEP)
+
+    n_vy = 3 * (len(NIVELES) - 1)
+    vy_start = vx_start + n_vx
+    print(fmt_e.format("Elem", "Nivel", "My_i [kN*m]", "My_j [kN*m]", "Vz [kN]"))
+
+    My_y_max = 0.0; Vz_y_max = 0.0
+    elem_My_y_max = 0; elem_Vz_y_max = 0
+    nivel_My_y_max = ""; nivel_Vz_y_max = ""
+
+    for idx, etag in enumerate(range(vy_start, vy_start + n_vy)):
+        resp = ops.eleResponse(etag, "localForce")
+        My_i = resp[4]; My_j = resp[10]; Vz = resp[2]
+        iz = idx // 3 + 1
+        nivel = NIVELES[iz][1] if iz < len(NIVELES) else "?"
+        print(fmt_e.format(etag, nivel, f"{My_i:.4f}", f"{My_j:.4f}", f"{Vz:.4f}"))
+        My_abs = max(abs(My_i), abs(My_j))
+        if My_abs > abs(My_y_max):
+            My_y_max = My_i if abs(My_i) > abs(My_j) else My_j
+            elem_My_y_max = etag; nivel_My_y_max = nivel
+        if abs(Vz) > abs(Vz_y_max):
+            Vz_y_max = Vz; elem_Vz_y_max = etag; nivel_Vz_y_max = nivel
+
+    print(f"\n  CRITICOS VIGAS Y:")
+    print(f"    Momento max:    Elem {elem_My_y_max} ({nivel_My_y_max}): My = {My_y_max:+.4f} kN*m")
+    print(f"    Corte max:      Elem {elem_Vz_y_max} ({nivel_Vz_y_max}): Vz = {Vz_y_max:+.4f} kN")
 
 
 # =====================================================================
