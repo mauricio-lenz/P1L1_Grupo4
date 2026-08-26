@@ -1,11 +1,11 @@
 # P1L1_Grupo4
 
-Estructura simple con losa maciza - Proyecto 1 Grupo 4.
+Pórtico 3D de hormigón armado — Proyecto 1 Grupo 4.
 
-Analisis elastico lineal de una estructura de hormigon armado en OpenSeesPy.
-La losa se modela con elementos shell (shellMITC4) para capturar la
-transferencia real de esfuerzos del peso propio de la losa a las vigas
-y de estas a las columnas.
+Análisis elástico lineal de un pórtico tridimensional de un piso en OpenSeesPy.
+El peso propio de la losa se transfiere a las vigas como carga distribuida
+(`eleLoad -beamUniform`), y de estas a las columnas. El modelo completo
+se define en un archivo JSON editable.
 
 ## Sistema de unidades
 
@@ -13,15 +13,15 @@ SI coherente:
 
 | Magnitud | Unidad |
 |---|---|
-| longitud | m |
-| fuerza | kN |
-| tension / modulo | kN/m2 |
-| momento | kN*m |
+| Longitud | m |
+| Fuerza | kN |
+| Tensión / módulo | kN/m² |
+| Momento | kN·m |
 
-## Instalacion
+## Instalación
 
 ```powershell
-git clone <URL-del-repo>.git
+git clone https://github.com/mauricio-lenz/P1L1_Grupo4.git
 cd P1L1_Grupo4
 python -m venv .venv
 .venv\Scripts\Activate.ps1
@@ -32,202 +32,262 @@ pip install -r requirements.txt
 
 ```powershell
 .venv\Scripts\Activate.ps1
-python -m src.simple_analysis
+python -m src.portico_3d                       # usa data/portico_3d.json por defecto
+python -m src.portico_3d data/portico_3d.json   # ruta explícita
 ```
 
 Salidas:
-- `results/figures/estructura_simple.png`: geometria, deformada y apoyos.
-- Impresion en terminal de desplazamientos, reacciones, fuerzas de vigas,
-  fuerzas de columnas y fuerzas resultantes de la losa.
+- `results/figures/portico_3d.png`: visualización 3D con deformada.
+- Impresión en terminal de reacciones, desplazamientos, fuerzas internas y resumen crítico.
 
-## Modelo estructural
+## Geometría
 
-### Geometria
-
-Planta cuadrada de 4 m x 4 m, altura de piso 3 m.
+Pórtico de un piso con planta rectangular de **3 × 6 m** y altura de piso **3 m**.
 
 ```
-    8 -------- 7
+    8 -------- 7           z = 3 m (techo)
     |          |
-    |   LOSA   |
-    |  (shell) |
+    |  VIGAS   |
     |          |
     5 -------- 6
     |          |
-    | VIGAS    |
-    | (4 lados)|
+    | COLUMNAS |
     |          |
-    4 -------- 3    Nodos 1-4: base (z=0)
-    |          |    Nodos 5-8: nivel losa (z=3m)
+    4 -------- 3           z = 0 m (base)
+    |          |           Apoyos empotrados
     1 -------- 2
+
+    X: 0 → 3 m   (vías cortas)
+    Y: 0 → 6 m   (vías largas)
 ```
 
-### Materiales
-
-Hormigon H30:
-
-| Propiedad | Valor |
-|---|---|
-| f'c | 25 MPa |
-| Ec | 4700 * sqrt(f'c) = 23.5 GPa |
-| nu | 0.20 |
-| G | E / (2*(1+nu)) = 9.79 GPa |
-| gamma | 25 kN/m3 |
-
-### Secciones
-
-| Elemento | b x h [m] | A [m2] | Iy [m4] | Iz [m4] |
-|---|---|---|---|---|
-| Columna | 0.30 x 0.30 | 0.0900 | 6.75e-4 | 6.75e-4 |
-| Viga | 0.20 x 0.40 | 0.0800 | 1.07e-3 | 2.67e-4 |
-| Losa (espesor) | - | - | - | t = 0.15 m |
-
-### Elementos
-
-| Tipo | Cantidad | Elemento OpenSees | Descripcion |
+| Nodo | X [m] | Y [m] | Z [m] |
 |---|---|---|---|
-| Columnas | 4 | elasticBeamColumn | De base (z=0) a losa (z=3m) |
-| Vigas | 16 | elasticBeamColumn | 4 lados x 4 tramos (1 m c/u) |
-| Losa | 16 | shellMITC4 | Malla 4x4, 1 panel de 1m x 1m |
+| 1 | 0.0 | 0.0 | 0.0 |
+| 2 | 3.0 | 0.0 | 0.0 |
+| 3 | 3.0 | 6.0 | 0.0 |
+| 4 | 0.0 | 6.0 | 0.0 |
+| 5 | 0.0 | 0.0 | 3.0 |
+| 6 | 3.0 | 0.0 | 3.0 |
+| 7 | 3.0 | 6.0 | 3.0 |
+| 8 | 0.0 | 6.0 | 3.0 |
 
-Las vigas se dividen en 4 tramos de 1 m para compartir nodos con la malla
-de la losa. Esto permite la transferencia de esfuerzos a traves de nodos
-compartidos entre shell y viga.
+## Material — Hormigón H30
 
-## Transferencia de esfuerzos: peso propio de la losa
+| Propiedad | Valor | Fórmula |
+|---|---|---|
+| f'c | 25 MPa | — |
+| Ec | 23 500 000 kN/m² (23.5 GPa) | 4700·√f'c |
+| ν | 0.20 | — |
+| G | 9 791 667 kN/m² (9.79 GPa) | E / (2·(1+ν)) |
+| γ | 25 kN/m³ | — |
 
-### Objeto
+## Secciones
 
-Demonstrar como el peso propio de una losa maciza se transfiere
-progresivamente a los elementos que la soportan:
+| Elemento | b × h [m] | A [m²] | Iy [m⁴] | Iz [m⁴] |
+|---|---|---|---|---|
+| Columna | 0.30 × 0.30 | 0.0900 | 6.75×10⁻⁴ | 6.75×10⁻⁴ |
+| Viga | 0.20 × 0.40 | 0.0800 | 1.067×10⁻³ | 2.667×10⁻⁴ |
+
+**Inercia torsional:**
+- Columna: J = 0.1406 · b⁴ = 1.139×10⁻³ m⁴
+- Viga: J = 0.196 · b_min³ · b_max = 1.024×10⁻³ m⁴
+
+## Transformaciones geometricas
+
+| Etiqueta | Uso | Vecxz |
+|---|---|---|
+| 1 | Columnas (eje local x → Z global) | [1, 0, 0] |
+| 2 | Vigas en X | [0, 0, 1] |
+| 3 | Vigas en Y | [0, 0, 1] |
+
+Las columnas van de base a techo; su eje local x sigue la dirección vertical (Z global).
+Las vigas usan vecxz = [0, 0, 1] para que el eje local z apunte hacia arriba.
+
+## Cálculo de cargas: peso propio de la losa → vigas
+
+### Datos de la losa
+
+| Parámetro | Valor |
+|---|---|
+| Extensión | 3 m (X) × 6 m (Y) |
+| Espesor | 0.15 m |
+| γ | 25 kN/m³ |
+| Peso total | 3 × 6 × 0.15 × 25 = **67.5 kN** |
+
+### Áreas tributarias
+
+La losa se apoya en 4 vigas perimetrales. Cada viga recibe la mitad de la
+carga de la losa en su dirección:
 
 ```
-PESO PROPIO DE LA LOSA
-        |
-        v
-  ELEMENTOS SHELL (shellMITC4)
-  distribuyen esfuerzos por stiffness
-        |
-        v
-  NODOS COMPARTIDOS (perimetro)
-  la losa transfiere carga a las vigas
-        |
-        v
-  VIGAS DE PERIMETRO (16 tramos)
-  reciben carga de corte y momento flector
-        |
-        v
-  NODOS ESQUINA (5, 6, 7, 8)
-  punto de conexion viga-columna
-        |
-        v
-  COLUMNAS (4)
-  esfuerzo axial + momento por eccentricidad
-        |
-        v
-  APOYOS (reacciones)
+         Y = 6 m
+    4 -------- 3
+    |  1.5 m   |
+    |←--------→|  (tributario de vigas en Y)
+    |          |
+    5 -------- 6
+         X = 3 m
 ```
 
-### Modelo de la losa con elementos shell
+| Dirección | Vigas | Longitud | Ancho tributario | Área tributaria | w [kN/m] |
+|---|---|---|---|---|---|
+| Cortas (X) | Tags 5, 7 | 3 m | 6 / 2 = 3.0 m | 9.0 m² | 3.0 × 0.15 × 25 = **2.8125** |
+| Largas (Y) | Tags 6, 8 | 6 m | 3 / 2 = 1.5 m | 9.0 m² | 1.5 × 0.15 × 25 = **4.21875** |
 
-La losa se modela con 16 elementos `shellMITC4` (malla 4x4). Cada elemento
-tiene4 nodos y un punto de integracion. El material se define con:
+**Verificación de la carga total aplicada:**
+
+```
+2 vigas cortas:  2 × 2.8125 kN/m × 3 m  = 16.875 kN
+2 vigas largas:  2 × 4.21875 kN/m × 6 m = 50.625 kN
+                                     TOTAL = 67.500 kN  ✓
+```
+
+### Aplicación en OpenSeesPy
+
+Las cargas se aplican como carga uniforme en ejes locales mediante `eleLoad`:
 
 ```python
-ops.section("ElasticMembranePlateSection", secTag, E, nu, espesor, rho)
+# Vigas en X (tags 5, 7): carga vertical en eje local z
+ops.eleLoad("-ele", 5, "-type", "-beamUniform", 0, -2.8125)  # wy=0, wz=-2.8125
+ops.eleLoad("-ele", 7, "-type", "-beamUniform", 0, -2.8125)
+
+# Vigas en Y (tags 6, 8)
+ops.eleLoad("-ele", 6, "-type", "-beamUniform", 0, -4.21875) # wy=0, wz=-4.21875
+ops.eleLoad("-ele", 8, "-type", "-beamUniform", 0, -4.21875)
 ```
 
-El shellMITC4 captura tanto el comportamiento de membrana (esfuerzos Nxx, Nyy,
-Nxy) como de flexion (momentos Mxx, Myy, Mxy) y cortante (Vxz, Vyz).
+El valor negativo en `wz` indica dirección descendente (gravedad).
 
-### Carga: peso propio como cargas nodales equivalentes
-
-El peso propio de la losa se aplica como cargas nodales usando el metodo de
-areas tributarias. Cada nodo recibe una carga proporcional al area que
-representa:
+## Camino de carga
 
 ```
-Nodo interior (9 nodos):   area = dx * dy = 1.0 m2
-Nodo borde (12 nodos):     area = dx * dy/2 = 0.5 m2  (o dy * dx/2)
-Nodo esquina (4 nodos):    area = dx/2 * dy/2 = 0.25 m2
-
-Carga por nodo = area_tributaria * espesor * gamma
+  PESO PROPIO DE LA LOSA (67.5 kN)
+            |
+            v
+  CÁLCULO DE ÁREAS TRIBUTARIAS
+  w = ancho_tributario × espesor × γ
+            |
+            v
+  CARGA DISTRIBUIDA EN VIGAS (eleLoad -beamUniform)
+  vigas cortas: 2.8125 kN/m    vigas largas: 4.21875 kN/m
+            |
+            v
+  VIGAS → cortante Vz + momento flector My
+            |
+            v
+  NODOS ESQUINA (5, 6, 7, 8)
+  conexión viga–columna
+            |
+            v
+  COLUMNAS → fuerza axial N + momentos flectores
+            |
+            v
+  APOYOS EMPOTRADOS (nodos 1–4)
+  reacciones FZ + momentos
 ```
 
-| Tipo de nodo | Cantidad | Area [m2] | Carga [kN] |
+## Resultados del análisis
+
+### Reacciones en la base
+
+| Nodo | FX [kN] | FY [kN] | FZ [kN] | MX [kN·m] | MY [kN·m] | MZ [kN·m] |
+|---|---|---|---|---|---|---|
+| 1 | 0.5873 | 4.5126 | 16.8750 | -4.4872 | 0.5856 | 0.0000 |
+| 2 | -0.5873 | 4.5126 | 16.8750 | -4.4872 | -0.5856 | 0.0000 |
+| 3 | -0.5873 | -4.5126 | 16.8750 | 4.4872 | -0.5856 | 0.0000 |
+| 4 | 0.5873 | -4.5126 | 16.8750 | 4.4872 | 0.5856 | 0.0000 |
+| **Suma** | **0.0000** | **0.0000** | **67.5000** | **0.0000** | **0.0000** | **0.0000** |
+
+**Verificación:** ΣFZ = 67.50 kN = peso total de la losa. Equilibrio global ✓
+
+### Desplazamientos del techo (nodos 5–8)
+
+| Nodo | Ux [m] | Uy [m] | Uz [m] |
 |---|---|---|---|
-| Interior | 9 | 1.00 | 3.75 |
-| Borde | 12 | 0.50 | 1.875 |
-| Esquina | 4 | 0.25 | 0.9375 |
-| **Total** | **25** | **16.0** | **60.0** |
+| 5 | 4.69×10⁻⁷ | 7.20×10⁻⁶ | -2.39×10⁻⁵ |
+| 6 | -4.69×10⁻⁷ | 7.20×10⁻⁶ | -2.39×10⁻⁵ |
+| 7 | -4.69×10⁻⁷ | -7.20×10⁻⁶ | -2.39×10⁻⁵ |
+| 8 | 4.69×10⁻⁷ | -7.20×10⁻⁶ | -2.39×10⁻⁵ |
 
-Verificacion: 4x4 m x 0.15 m x 25 kN/m3 = 60 kN.
+La Flecha vertical es uniforme: **Uz = -0.024 mm** (prácticamente nulo para un pórtico rígido).
 
-### Mecanismo de transferencia
+### Fuerzas internas — vigas (eje local)
 
-1. **Los shell distribuyen la carga**: Las cargas nodales aplicadas en los
-   nodos interiores se transfieren a traves de la rigidez del shell hacia
-   los nodos del perimetro.
+| Elemento | Tipo | Vz_i [kN] | Vz_j [kN] | My_i [kN·m] | My_j [kN·m] |
+|---|---|---|---|---|---|
+| 5 | Viga corta (3 m) | 4.2188 | 4.2188 | -1.1762 | 1.1762 |
+| 7 | Viga corta (3 m) | 4.2188 | 4.2188 | -1.1762 | 1.1762 |
+| 6 | Viga larga (6 m) | 12.6562 | 12.6563 | -9.0506 | 9.0506 |
+| 8 | Viga larga (6 m) | 12.6562 | 12.6562 | -9.0506 | 9.0506 |
 
-2. **Nodos compartidos**: Los nodos del perimetro de la losa (5, 6, 7, 8
-   en las esquinas y 101-121 en los bordes) son compartidos con los
-   elementos de viga. La carga se transfiere automaticamente a traves de
-   la connectivity del modelo.
+**Viga corta (3 m):** corte Vz = 4.22 kN, momento máximo My = 1.18 kN·m.
+**Viga larga (6 m):** corte Vz = 12.66 kN, momento máximo My = 9.05 kN·m.
 
-3. **Las vigas reciben la carga**: Cada tramo de viga recibe carga de corte
-   (Vz) y momento flector (Mz) de la losa. Los tramos cercanos a las
-   esquinas (conectados a las columnas) reciben mayor carga.
+### Fuerzas internas — columnas (eje local)
 
-4. **Las columnas soportan todo**: Las reacciones verticales en los apoyos
-   suman exactamente 60 kN, verificando el equilibrio global.
+| Elemento | N_i [kN] | N_j [kN] | Máx |M| [kN·m] |
+|---|---|---|---|
+| 1 (Col 1→5) | 16.875 | -16.875 | 9.0506 |
+| 2 (Col 2→6) | 16.875 | -16.875 | 9.0506 |
+| 3 (Col 3→7) | 16.875 | -16.875 | 9.0506 |
+| 4 (Col 4→8) | 16.875 | -16.875 | 9.0506 |
 
-### Resultados del analisis
+Cada columna soporta **N = -16.875 kN** (compresión) = 67.5 / 4.
 
-| Resultado | Valor | Interpretacion |
-|---|---|---|
-| Uz max (centro losa) | 0.83 mm | Flecha de la losa bajo peso propio |
-| Reaccion FZ por columna | 15.0 kN | 60 kN / 4 columnas = 15 kN |
-| Reaccion FX, FY | +/-2.13 kN | Accion membrana de la losa |
-| Vz en vigas (esquina) | 2.99 kN | Corte transferido de losa a viga |
-| Mz en columnas | 2.12 kN*m | Momento por eccentricidad de vigas |
-| N en columnas | 15.0 kN | Compresion axial |
-| Fuerzas en losa | Nxx, Mxx... | Esfuerzos resultantes internos |
+### Resumen de resultados críticos
 
-### Diferencia con modelo sin shell
+| Resultado | Valor |
+|---|---|
+| **Columnas** | |
+| Fuerza axial máxima (compresión) | -16.875 kN |
+| Momento flector máximo absoluto | 9.0506 kN·m |
+| **Vigas cortas (3 m)** | |
+| Momento flector máximo absoluto | 1.1762 kN·m |
+| Fuerza de corte máxima absoluta | 4.2188 kN |
+| **Vigas largas (6 m)** | |
+| Momento flector máximo absoluto | 9.0506 kN·m |
+| Fuerza de corte máxima absoluta | 12.6563 kN |
 
-En un modelo donde la carga se aplica directamente a los nodos de columna
-(sin elementos shell), las vigas tienen fuerza cero porque la carga va
-directamente de los nodos a las columnas. Con shellMITC4, la carga se
-transfiere a traves de la losa estructural, reproduciendo el camino de
-carga real.
+## Datos del modelo (JSON)
 
-| Concepto | Modelo sin shell | Modelo con shell |
-|---|---|---|
-| Fuerza en vigas | 0 kN | ~3 kN (corte), momento flector |
-| Momento en columnas | 0 kN*m | 2.12 kN*m |
-| Reacciones horizontales | 0 kN | 2.13 kN (membrana) |
-| Flecha de losa | N/A | 0.83 mm |
-| Camino de carga | Carga -> columna | Losa -> viga -> columna |
+Todo el modelo se define en `data/portico_3d.json`:
+
+```json
+{
+  "material":       { "E": 23500000.0, "nu": 0.20 },
+  "secciones":      { "columna": {"b":0.30,"h":0.30}, "viga": {"b":0.20,"h":0.40} },
+  "nodos":          { "1": [0,0,0], ..., "8": [0,6,3] },
+  "apoyos":         { "1": [1,1,1,1,1,1], ... },
+  "geomTransf":     { "columnas": {"tag":1,"vecxz":[1,0,0]}, ... },
+  "elementos":      [ { "tag":1, "i":1, "j":5, "seccion":"columna", ... }, ... ]
+}
+```
+
+Para modificar la geometría, secciones o cargas, basta editar el JSON y volver a ejecutar.
 
 ## Estructura del proyecto
 
 ```
 P1L1_Grupo4/
   data/
-    estructura_simple.json     Datos de la estructura (material, secciones, nodos)
+    portico_3d.json              Datos del pórtico 3D
+    estructura_simple.json       Datos de la estructura simple (shell)
   src/
     __init__.py
-    simple_analysis.py         Modelo, analisis, resultados y visualizacion
+    portico_3d.py                Modelo 3D, análisis y visualización
+    simple_analysis.py           Modelo con losa shell (shellMITC4)
   results/
     figures/
-      estructura_simple.png    Figura 3D de la estructura
+      portico_3d.png             Figura 3D del pórtico
+      estructura_simple.png      Figura de la estructura simple
   requirements.txt
   pytest.ini
   AGENTS.md
   README.md
 ```
 
-## Sistema operativo y Python
+## Entorno
 
 - Windows 11
 - Python 3.12
