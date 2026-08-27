@@ -137,7 +137,7 @@ def analizar():
 # RESULTADOS DETALLADOS
 # =====================================================================
 
-def imprimir_resultados(data):
+def imprimir_resultados(data, carga_aplicada):
     SEP = "=" * 78
 
     nodos_apoyo = [int(t) for t, fix in data["apoyos"].items()
@@ -152,15 +152,31 @@ def imprimir_resultados(data):
           f" {'MX [kN*m]':>12} {'MY [kN*m]':>12} {'MZ [kN*m]':>12}")
     print("-" * 78)
 
-    sum_fz = 0.0
+    sum_fx = sum_fy = sum_fz = 0.0
     for tag in nodos_apoyo:
         r = ops.nodeReaction(tag)
+        sum_fx += r[0]
+        sum_fy += r[1]
         sum_fz += r[2]
         print(f"{tag:>6} {r[0]:>12.4f} {r[1]:>12.4f} {r[2]:>12.4f}"
               f" {r[3]:>12.4f} {r[4]:>12.4f} {r[5]:>12.4f}")
 
     print("-" * 78)
-    print(f"  Suma FZ = {sum_fz:.4f} kN")
+    print(f"  Suma FX = {sum_fx:.4f} kN    Suma FY = {sum_fy:.4f} kN    Suma FZ = {sum_fz:.4f} kN")
+
+    # ── VERIFICACION ────────────────────────────────────────────────
+    print(f"\n{SEP}")
+    print("VERIFICACION DE EQUILIBRIO")
+    print(SEP)
+    print(f"  Carga total aplicada (peso losa):    {carga_aplicada:>10.4f} kN")
+    print(f"  Suma de reacciones FZ (apoyos):      {sum_fz:>10.4f} kN")
+    dif = abs(carga_aplicada) - abs(sum_fz)
+    print(f"  Diferencia:                          {dif:>10.6f} kN")
+    if abs(dif) < 1e-6:
+        print(f"  Estado: CUMPLE  (|diff| < 1e-6 kN)")
+    else:
+        print(f"  Estado: NO CUMPLE (|diff| = {abs(dif):.6f} kN)")
+    print(SEP)
 
     # ── DESPLAZAMIENTOS NODALES ─────────────────────────────────────
     print(f"\n{SEP}")
@@ -352,7 +368,7 @@ def main():
     print("    Analisis completado.")
 
     print(f"\n[4] Extrayendo resultados...")
-    imprimir_resultados(data)
+    imprimir_resultados(data, total)
 
     print("[5] Generando visualizacion 3D...")
     visualizar(data)
