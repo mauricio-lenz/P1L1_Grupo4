@@ -143,6 +143,7 @@ def imprimir_resultados(data, carga_aplicada):
     nodos_apoyo = [int(t) for t, fix in data["apoyos"].items()
                    if all(f == 1 for f in fix)]
     nodos_top = sorted(int(t) for t, xyz in data["nodos"].items() if xyz[2] > 0)
+    col_tags = [int(e["tag"]) for e in data["elementos"] if e["tipo"] == "columna"]
 
     # ── REACCIONES BASE ─────────────────────────────────────────────
     print(f"\n{SEP}")
@@ -191,6 +192,16 @@ def imprimir_resultados(data, carga_aplicada):
         print(f"{tag:>6} {d[0]:>14.6e} {d[1]:>14.6e} {d[2]:>14.6e}"
               f" {d[3]:>14.6e} {d[4]:>14.6e} {d[5]:>14.6e}")
 
+    # ── VERIFICACION: DESPLAZAMIENTO DE UN NODO ─────────────────────
+    print(f"\n{SEP}")
+    print("VERIFICACION: DESPLAZAMIENTO DE UN NODO")
+    print(SEP)
+    for tag in nodos_top:
+        d = ops.nodeDisp(tag)
+        print(f"  Nodo {tag}:  Ux={d[0]:>12.6e} m   Uy={d[1]:>12.6e} m   "
+              f"Uz={d[2]:>12.6e} m")
+    print(SEP)
+
     # ── FUERZAS INTERNAS DE TODOS LOS ELEMENTOS ─────────────────────
     print(f"\n{SEP}")
     print("FUERZAS INTERNAS - ELEMENTOS (eje local)")
@@ -207,6 +218,34 @@ def imprimir_resultados(data, carga_aplicada):
         print(f"    Nodo j:  N={resp[6]:>10.4f}  Vy={resp[7]:>10.4f}"
               f"  Vz={resp[8]:>10.4f}  T={resp[9]:>10.4f}"
               f"  My={resp[10]:>10.4f}  Mz={resp[11]:>10.4f}")
+
+    # ── VERIFICACION: FUERZA AXIAL DE UN ELEMENTO ───────────────────
+    print(f"\n{SEP}")
+    print("VERIFICACION: FUERZA AXIAL EN COLUMNAS")
+    print(SEP)
+    n_col = len(col_tags) if col_tags else 0
+    n_apoyo = len(nodos_apoyo)
+    for tag in col_tags:
+        r = ops.eleResponse(tag, "localForce")
+        N = r[0]
+        print(f"  Elemento {tag}:  Fuerza axial N = {N:>10.4f} kN")
+    if n_col > 0 and n_apoyo > 0:
+        N_esp = carga_aplicada / n_apoyo
+        print(f"\n  Esperado (peso total / {n_apoyo} apoyos): {N_esp:>8.4f} kN")
+    print(SEP)
+
+    # ── VERIFICACION: MOMENTO DE EXTREMO DE UN ELEMENTO ─────────────
+    print(f"\n{SEP}")
+    print("VERIFICACION: MOMENTO EN EXTREMO DE COLUMNAS")
+    print(SEP)
+    for tag in col_tags:
+        r = ops.eleResponse(tag, "localForce")
+        My_i, Mz_i = r[4], r[5]
+        My_j, Mz_j = r[10], r[11]
+        print(f"  Elemento {tag}:")
+        print(f"    Nodo i:  My={My_i:>10.4f} kN*m   Mz={Mz_i:>10.4f} kN*m")
+        print(f"    Nodo j:  My={My_j:>10.4f} kN*m   Mz={Mz_j:>10.4f} kN*m")
+    print(SEP)
 
     _resumen_criticos(data)
 
