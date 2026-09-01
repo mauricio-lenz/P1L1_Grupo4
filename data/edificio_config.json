@@ -1,0 +1,96 @@
+{
+  "proyecto": "Edificio Institucional - Grupo 4",
+  "unidades": "SI coherente: longitud [m], fuerza [kN], tension/modulo [kN/m2], momento [kN*m]",
+  "nota": "RELLENA los valores con tus planos. Los valores actuales son dummy de ejemplo (dimensiones y cargas ficticias).",
+
+  "grilla_ejes": {
+    "nota": "Coordenadas de los ejes de columnas. 'X' son las verticales/letras, 'Y' las horizontales/numeros.",
+    "X": { "Eje A": 0.0, "Eje B": 7.5, "Eje C": 17.0, "Eje D": 27.225},
+    "Y": { "Eje 1": 0.0, "Eje 2": 8.9, "Eje 3": 16.15 }
+  },
+
+  "niveles": {
+    "nota": "Cota Z (m) de cada nivel. 'base' = cota de la fundacion (apoyos empotrados).",
+    "base": 0.0,
+    "Subterraneo": 3.96,
+    "Piso1": 7.92,
+    "Piso2": 11.88,
+    "Piso3": 15.84,
+    "Piso4": 19.8,
+    "Cubierta": 20.8
+  },
+
+  "materiales": {
+    "H30":      { "E": 23500000.0, "nu": 0.20, "gamma": 25.0 },
+    "Acero_A36": { "E": 200000000.0, "nu": 0.30, "gamma": 78.5 }
+  },
+
+  "secciones_tipo": {
+    "nota": "Definir secciones. Vigas/columnas/muros son rectangulares (b,h); diagonales solo necesitan area A (truss axial).",
+    "vigas": {
+      "V-60x80": { "b": 0.60, "h": 0.80, "material": "H30" }
+    },
+    "columnas": {
+      "C-70x70": { "b": 0.70, "h": 0.70, "material": "H30" }
+    },
+    "muros": {
+      "MW-55": { "t": 0.55, "material": "H30" }
+    },
+    "diagonales": {
+      "D-100x10": { "A": 0.001258, "material": "Acero_A36" }
+    }
+  },
+
+  "asignaciones": {
+    "nota": "Que seccion se usa en cada nivel/piso. Puedes sobreescribir por nivel si difieren.",
+    "columnas_por_nivel": {
+      "Subterraneo": "C-70x70", "Piso1": "C-70x70", "Piso2": "C-70x70",
+      "Piso3": "C-70x70", "Piso4": "C-70x70", "Cubierta": "C-70x70"
+    },
+    "vigas_por_nivel": {
+      "Subterraneo": "V-60x80", "Piso1": "V-60x80", "Piso2": "V-60x80",
+      "Piso3": "V-60x80", "Piso4": "V-60x80", "Cubierta": "V-60x80"
+    }
+  },
+
+  "cargas": {
+    "nota": "qG = peso propio de losa (kN/m2) + terminaciones uniformes por nivel. Se transfiere por areas tributarias a las vigas.",
+    "qG": {
+      "Subterraneo": 8.0,
+      "Piso1": 8.0,
+      "Piso2": 8.0,
+      "Piso3": 8.0,
+      "Piso4": 8.0,
+      "Cubierta": 6.0
+    },
+    "g": 9.81,
+    "puntuales": [
+      { "descripcion": "Equipo 6000 kg - nodo", "peso_kg": 6000.0,
+        "tipo": "nodo", "nivel": "Piso3",
+        "eje_x": "Eje B", "eje_y": "Eje 2", "factor": 1.0 },
+      { "descripcion": "Equipo 13000 kg - viga", "peso_kg": 13000.0,
+        "tipo": "viga", "nivel": "Piso4",
+        "eje_x": "Eje A", "eje_y": "Eje 1",
+        "direccion": "X", "posicion": 0.5, "factor": 1.0 }
+    ]
+  },
+
+  "arriostramientos": {
+    "nota": "Diagonales metalicas (truss axial) en los porticos exteriores indicados.",
+    "patron": "X",
+    "frames_Y": ["Eje 1", "Eje 3"],
+    "desde_nivel": "Subterraneo",
+    "hasta_nivel": "Piso4",
+    "seccion": "D-100x10"
+  },
+
+  "muros": {
+    "nota": "Muros de corte modelados con metodo de columna ancha (wide column). orientacion: 'X' = muro paralelo a eje X (sobre eje Y dado), 'Y' = paralelo a eje Y (sobre eje X dado).",
+    "lista": [
+      { "nombre": "Muro 1", "orientacion": "Y", "linea": "Eje B",
+        "desde_eje": "Eje 1", "hasta_eje": "Eje 3",
+        "seccion": "MW-55", "desde_nivel": "Subterraneo", "hasta_nivel": "Cubierta" }
+    ],
+    "nota_ejes": "Para orientacion='X': linea es un eje Y (constante Y) y desde/hasta recorren ejes X. Para orientacion='Y': linea es un eje X (constante X) y desde/hasta recorren ejes Y."
+  }
+}

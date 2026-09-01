@@ -34,6 +34,7 @@ pip install -r requirements.txt
 .venv\Scripts\Activate.ps1
 python -m src.portico_3d                       # usa data/portico_3d.json por defecto
 python -m src.portico_3d data/portico_3d.json   # ruta explícita
+python -m src.edificio                          # edificio 5 niveles (data/edificio_config.json)
 ```
 
 Salidas:
@@ -266,21 +267,91 @@ Todo el modelo se define en `data/portico_3d.json`:
 
 Para modificar la geometría, secciones o cargas, basta editar el JSON y volver a ejecutar.
 
+## Edificio institucional 5 niveles (`src/edificio.py`)
+
+Modelo elástico lineal de un edificio de 5 niveles (1 subterráneo + 4 pisos +
+cubierta) con pórticos de hormigón armado, diagonales de acero (arriostramiento
+X), muros de gran ancho (wide-column), losas rígidas (`rigidDiaphragm`) y cargas
+por áreas tributarias.
+
+```text
+python -m src.edificio                       # usa data/edificio_config.json
+python -m src.edificio data/edificio_config.json   # ruta explícita
+```
+
+El modelo genera la salida QA en consola (tablas CSV):
+
+- `# nivel,qG,carga_losa_piso,area_piso,suma_w_X,suma_w_Y`: losa por piso.
+- `# verificacion_areas_tributarias`: por piso, X = Y = 54 m² y total = 108 m² = `area_piso`.
+- `# reacciones_basales`: fuerza y momento en todos los nodos de la base.
+- `# conservacion_carga`: `carga_total_aplicada` ≈ `suma_reacciones_FZ` (diferencia ~0)
+  y ΣF<sub>x</sub> = ΣF<sub>y</sub> = 0.
+- `# compatibilidad_diafragma`: residuo de cuerpo rígido de cada piso vs nodo
+  maestro (debe ser ~0).
+
+Además genera una vista 3D (`results/figures/edificio_3d.png`) y exporta el
+modelo completo a JSON en `results/export/` para el viewer/Unity:
+
+- `nodos.json`: `{tag, x, y, z}` por nodo.
+- `elementos.json`: `elementTag, tipo (columna/viga/diagonal/muro), n1, n2,
+  seccion, material, transf (eje local), L`.
+- `diafragmas.json`: por nivel, nodo `master` + lista de `slaves`.
+- `apoyos.json`: `{tag, ux, uy, uz, rx, ry, rz}` de cada apoyo (1 = restringido).
+- `secciones.json`: secciones tipo y materiales del config.
+- `tributarias.json`: por viga, `elementTag`, `w_kN_m`, `asa_x_m`/`asa_y_m` y
+  `carga_losa_kN`; más `carga_total_losa_kN` y `carga_puntual_kN`.
+- `verificaciones.json`: carga de losa por piso, áreas tributarias,
+  conservación de carga, equilibrio global y reacciones basales.
+
+Estos JSON permiten responder en el viewer a "¿qué elementTag tiene?",
+"¿qué apoyos tiene?", "¿cuál es su eje local?", "¿qué área tributaria carga
+esta viga?" y "¿cuántos kN de losa llegan a ella?".
+
+### Dónde inyectar las coordenadas reales
+
+Todo el edificio se describe en `data/edificio_config.json` (con las
+coordenadas/cargas/secciones del proyecto). Para modificarlas se edita
+únicamente ese archivo:
+
+| Clave | Qué describe | Qué editar |
+|---|---|---|
+| `grilla_ejes.X` / `.Y` | coordenadas de los ejes | sustituir los valores por los reales del proyecto (en `orden_x`/`orden_y` se indica el orden de los ejes) |
+| `niveles` | altura (elevación Z) de cada nivel | claves `Subterraneo`, `Piso1..4`, `Cubierta` y valor `base` (altura de empotramiento) |
+| `materiales` / `secciones_tipo` | módulos, ν, y secciones de vigas/columnas/muros/diagonales | geometrías y propiedades de los elementos |
+| `cargas.qG` / `.g` / `.puntuales` | carga de losa por nivel (kN/m²), gravedad y cargas puntuales (peso_kg, tipo `nodo`/`viga`, `posicion`, `factor`) | cargas de diseño |
+| `arriostramientos` | frames donde van las diagonales X, patron y rango de niveles | ubicación real del arriostramiento |
+| `muros` | muros de cortante (orientación, línea de ejes, rango de niveles) | simetría real del edificio |
+
+Los nombres de los niveles (`niveles`), ejes (`grilla_ejes`) y los valores de
+`qG` deben mantener coherencia entre secciones: el script resuelve los
+índices de eje/nivel por nombre.
+
 ## Estructura del proyecto
 
 ```
 P1L1_Grupo4/
   data/
     portico_3d.json              Datos del pórtico 3D
+    edificio_config.json         Datos del edificio institucional (grilla, niveles, cargas)
     estructura_simple.json       Datos de la estructura simple (shell)
   src/
     __init__.py
     portico_3d.py                Modelo 3D, análisis y visualización
+    edificio.py                  Edificio 5 niveles con muros, diagonales y QA
     simple_analysis.py           Modelo con losa shell (shellMITC4)
   results/
     figures/
       portico_3d.png             Figura 3D del pórtico
       estructura_simple.png      Figura de la estructura simple
+      edificio_3d.png            Vista 3D del edificio con deformada
+    export/
+      nodos.json                 Nodos del edificio (tag, x, y, z)
+      elementos.json             Elementos (elementTag, n1/n2, seccion, transf)
+      diafragmas.json            Diafragmas rígidos (master + slaves por nivel)
+      apoyos.json                Apoyos (GDL restringidos)
+      secciones.json             Secciones tipo y materiales
+      tributarias.json           Áreas tributarias y carga de losa por viga
+      verificaciones.json        Verificaciones (conservación, equilibrio, etc.)
   requirements.txt
   pytest.ini
   AGENTS.md
