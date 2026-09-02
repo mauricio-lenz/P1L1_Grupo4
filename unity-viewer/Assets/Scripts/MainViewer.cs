@@ -164,7 +164,7 @@ namespace Edificio.Viewer
             }
 
             var renderer = go.GetComponent<Renderer>();
-            renderer.material.color = BuildingColors.Get(color);
+            renderer.sharedMaterial = MakeMat(BuildingColors.Get(color));
 
             var item = go.AddComponent<ElementItem>();
             item.Setup(el, t);
@@ -226,16 +226,17 @@ namespace Edificio.Viewer
             cube.transform.position = pos;
             cube.transform.localScale = scale;
 
-            var mat = cube.GetComponent<Renderer>().material;
-            mat.color = BuildingColors.Get(TipoColor.Muro);
-            TryLitShader(mat);
+            var mat = MakeMat(BuildingColors.Get(TipoColor.Muro));
+            cube.GetComponent<Renderer>().sharedMaterial = mat;
             return cube;
         }
 
-        static void TryLitShader(Material m)
+        static Material MakeMat(Color c)
         {
-            var sh = Shader.Find("Universal Render Pipeline/Lit");
-            if (sh != null) m.shader = sh;
+            var sh = Shader.Find("Standard");
+            var m = new Material(sh != null ? sh : Shader.Find("Diffuse"));
+            m.color = c;
+            return m;
         }
 
         static float GetValor(GrillaFile g, string name, string tipo)
@@ -269,9 +270,8 @@ namespace Edificio.Viewer
                 plane.transform.localScale = new Vector3(spanX + 4f, 0.05f, spanz + 4f);
                 plane.transform.position = new Vector3(spanX * 0.5f, kv.Value + 0.001f, spanz * 0.5f);
 
-                var mat = plane.GetComponent<Renderer>().material;
-                mat.color = new Color(1f, 1f, 1f, 0.05f);
-                TryLitShader(mat);
+                var mat = MakeMat(new Color(1f, 1f, 1f, 0.05f));
+                plane.GetComponent<Renderer>().sharedMaterial = mat;
             }
         }
 
@@ -283,7 +283,7 @@ namespace Edificio.Viewer
                 s.transform.SetParent(_modelo.transform, false);
                 s.transform.position = kv.Value;
                 s.transform.localScale = Vector3.one * 0.35f;
-                s.GetComponent<Renderer>().material.color = BuildingColors.Get(TipoColor.Nodo);
+                s.GetComponent<Renderer>().sharedMaterial = MakeMat(BuildingColors.Get(TipoColor.Nodo));
             }
         }
 
@@ -298,7 +298,7 @@ namespace Edificio.Viewer
                 p.y -= 0.25f;
                 s.transform.position = p;
                 s.transform.localScale = Vector3.one * 1.1f;
-                s.GetComponent<Renderer>().material.color = BuildingColors.Get(TipoColor.Apoyo);
+                s.GetComponent<Renderer>().sharedMaterial = MakeMat(BuildingColors.Get(TipoColor.Apoyo));
             }
         }
 
