@@ -365,10 +365,40 @@ P1L1_Grupo4/
       secciones.json             Secciones tipo y materiales
       tributarias.json           Áreas tributarias y carga de losa por viga
       verificaciones.json        Verificaciones (conservación, equilibrio, etc.)
+      grilla.json                Ejes/niveles por nombre (para el viewer Unity)
+  unity-viewer/                  Proyecto Unity (viewer 3D del edificio)
+    Assets/Scripts/              Código C# (loader, geometría, cámara, UI)
+    Assets/Editor/               Auto-genera la escena Main al primer import
+    Assets/StreamingAssets/json/ Copia de results/export para el viewer
+  tools/
+    sync_unity_assets.ps1        Copia results/export/*.json al viewer
   requirements.txt
   pytest.ini
   AGENTS.md
   README.md
+```
+
+## Viewer Unity (`unity-viewer/`)
+
+Edifica el modelo 3D del edificio 2017_67 a partir de `results/export/*.json`,
+coloreado por tipo y con inspección de elementos al hacer clic.
+
+- Colores: columnas rojo, vigas azul, vigas del voladizo (eje J) cian,
+  muros naranja, apoyos verde claro.
+- Al seleccionar un elemento muestra: `elementTag`, tipo, nivel, orientación,
+  sección, material, longitud `L` y `w` (kN/m) de carga de losa.
+- Cámara: botón derecho = orbitar, scroll = zoom, botón central = panear,
+  Escape deselecciona.
+
+Abrir: abrir `unity-viewer/` desde Unity Hub (Unity 6.3.23f1 LTS). El modelo
+se construye automáticamente al abrir la escena `Assets/Scenes/Main.unity` (no
+requiere dar Play para verlo; también menú `Edificio -> Reconstruir modelo
+visible`). Para inspeccionar elementos (click) y orbitar la cámara hay que dar
+Play. Para refrescar los datos:
+
+```powershell
+python -m src.edificio    # regenera results/export
+.\tools\sync_unity_assets.ps1
 ```
 
 ## Entorno

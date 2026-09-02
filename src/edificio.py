@@ -1048,6 +1048,15 @@ def exportar_json(edificio, cfg, resumen, area_piso_lvl, area_x, area_y,
         nodos.append({"tag": nid, "x": x, "y": y, "z": z})
     _write(EXPORT_DIR / "nodos.json", {"nodos": nodos})
 
+    # ---- 1b. GRILLA (ejes/niveles por nombre, para el viewer) -----
+    def _ejes_limpos(d):
+        return {k: v for k, v in d.items() if k != "nota"}
+
+    _write(EXPORT_DIR / "grilla.json", {
+        "ejes_X": _ejes_limpos(cfg["grilla_ejes"].get("X", {})),
+        "ejes_Y": _ejes_limpos(cfg["grilla_ejes"].get("Y", {})),
+        "niveles": _ejes_limpos(cfg["niveles"])})
+
     # ---- 2. APOYOS ------------------------------------------------
     apoyos = [{"tag": nid, "ux": a[0], "uy": a[1], "uz": a[2],
                "rx": a[3], "ry": a[4], "rz": a[5]}

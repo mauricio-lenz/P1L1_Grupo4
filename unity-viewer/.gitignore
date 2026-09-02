@@ -1,0 +1,35 @@
+# Build artifacts
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+MemoryCaptures/
+Recordings/
+
+# IDE / OS
+.idea/
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity crash
+sysinfo.txt
+crashlytics-build.properties
+*.log
+
+# Proyecto plantilla accidental creado por el Hub (no es el viewer)
+My project/

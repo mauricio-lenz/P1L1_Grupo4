@@ -1,0 +1,43 @@
+{
+  "secciones_tipo": {
+    "nota": "Secciones de los planos: columna P.70x70, viga V.60/80, muro e=20 cm (nucleo).",
+    "vigas": {
+      "V-60x80": {
+        "b": 0.6,
+        "h": 0.8,
+        "material": "H30"
+      }
+    },
+    "columnas": {
+      "P-70x70": {
+        "b": 0.7,
+        "h": 0.7,
+        "material": "H30"
+      }
+    },
+    "muros": {
+      "MW-20": {
+        "t": 0.2,
+        "material": "H30"
+      }
+    },
+    "diagonales": {
+      "D-100x10": {
+        "A": 0.002,
+        "material": "Acero_A36"
+      }
+    }
+  },
+  "materiales": {
+    "H30": {
+      "E": 23500000.0,
+      "nu": 0.2,
+      "gamma": 25.0
+    },
+    "Acero_A36": {
+      "E": 200000000.0,
+      "nu": 0.3,
+      "gamma": 78.5
+    }
+  }
+}
