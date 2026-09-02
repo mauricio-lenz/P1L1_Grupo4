@@ -1,6 +1,6 @@
 {
   "secciones_tipo": {
-    "nota": "Definir secciones. Vigas/columnas/muros son rectangulares (b,h); diagonales solo necesitan area A (truss axial).",
+    "nota": "Secciones de los planos: columna P.70x70, viga V.60/80, muro e=20 cm (nucleo).",
     "vigas": {
       "V-60x80": {
         "b": 0.6,
@@ -9,21 +9,21 @@
       }
     },
     "columnas": {
-      "C-70x70": {
+      "P-70x70": {
         "b": 0.7,
         "h": 0.7,
         "material": "H30"
       }
     },
     "muros": {
-      "MW-55": {
-        "t": 0.55,
+      "MW-20": {
+        "t": 0.2,
         "material": "H30"
       }
     },
     "diagonales": {
       "D-100x10": {
-        "A": 0.001258,
+        "A": 0.002,
         "material": "Acero_A36"
       }
     }

@@ -269,10 +269,21 @@ Para modificar la geometría, secciones o cargas, basta editar el JSON y volver 
 
 ## Edificio institucional 5 niveles (`src/edificio.py`)
 
-Modelo elástico lineal de un edificio de 5 niveles (1 subterráneo + 4 pisos +
-cubierta) con pórticos de hormigón armado, diagonales de acero (arriostramiento
-X), muros de gran ancho (wide-column), losas rígidas (`rigidDiaphragm`) y cargas
-por áreas tributarias.
+Modelo elástico lineal del edificio real **2017_67 (U. de los Andes)**,
+extraído de los planos DXF (series 100-103 de estructura). Tiene 1
+subterráneo + 4 pisos (altura de piso 3.96 m), grilla de columnas
+E,F,G,H,I,I' × 3,2,1 (6×3), columnas P.70×70, vigas V.60×80, muros de
+núcleo e=20 cm (wide-column), losas rígidas (`rigidDiaphragm`) y cargas
+por áreas tributarias. Incluye el **voladizo al este (eje J)**: viga
+cantilever V.60×80 de I' a J (5.0 m, x=58.932 m) en **Piso3 y Piso4** con
+losa saliente 1.0 m (fascia x=59.932 m) y parapeto 0.75 m, sin columnas
+bajo J (definido en `cargas` del config como `voladizos`).
+
+- Geometría: `data/edificio_config.json` (ejes en m, extraídos del DXF
+  a escala 1 u = 1 cm).
+- Unidades: SI coherente (m, kN, kN/m²).
+- Cargas: `q_G` = peso propio losa (e=0.15 m) + terminaciones
+  (5.25 kN/m² pisos, 4.25 kN/m² cubierta).
 
 ```text
 python -m src.edificio                       # usa data/edificio_config.json
@@ -282,7 +293,8 @@ python -m src.edificio data/edificio_config.json   # ruta explícita
 El modelo genera la salida QA en consola (tablas CSV):
 
 - `# nivel,qG,carga_losa_piso,area_piso,suma_w_X,suma_w_Y`: losa por piso.
-- `# verificacion_areas_tributarias`: por piso, X = Y = 54 m² y total = 108 m² = `area_piso`.
+- `# verificacion_areas_tributarias`: por piso, X = Y = 363 m² y total = 726.8 m² =
+  `area_piso` (los pisos con voladizo suman 96.9 m² más → 823.7 m² en Piso3/Piso4).
 - `# reacciones_basales`: fuerza y momento en todos los nodos de la base.
 - `# conservacion_carga`: `carga_total_aplicada` ≈ `suma_reacciones_FZ` (diferencia ~0)
   y ΣF<sub>x</sub> = ΣF<sub>y</sub> = 0.
@@ -321,6 +333,7 @@ coordenadas/cargas/secciones del proyecto). Para modificarlas se edita
 | `cargas.qG` / `.g` / `.puntuales` | carga de losa por nivel (kN/m²), gravedad y cargas puntuales (peso_kg, tipo `nodo`/`viga`, `posicion`, `factor`) | cargas de diseño |
 | `arriostramientos` | frames donde van las diagonales X, patron y rango de niveles | ubicación real del arriostramiento |
 | `muros` | muros de cortante (orientación, línea de ejes, rango de niveles) | simetría real del edificio |
+| `voladizos` | voladizos (eje J): ejes de apoyo/destino, `x_j_m`, niveles, sección de viga, losa saliente y ejes Y | voladizo al este visto en elevaciones 302/300/303 |
 
 Los nombres de los niveles (`niveles`), ejes (`grilla_ejes`) y los valores de
 `qG` deben mantener coherencia entre secciones: el script resuelve los

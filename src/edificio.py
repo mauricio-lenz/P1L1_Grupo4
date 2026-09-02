@@ -155,6 +155,14 @@ class Edificio:
         self.columnas = []
         #   diagonales: lista de dicts (tag, n1, n2, seccion, material, tipo='truss', L)
         self.diagonales = []
+        #   voladizo (eje J): vigas cantilever I'->J por nivel
+        #   vol_vigas: {lvl: [(tag, n1, n2, L, iy)]}
+        #   vol_coord:  {tag: (n1, n2, iy, k)}
+        #   vol_saliente: {lvl: ancho_saliente_m}
+        self.vol_vigas = {}
+        self.vol_coord = {}
+        self.vol_saliente = {}
+        self.n_vol = 0
 
     def _nelem(self):
         """Devuelve un tag de elemento unico y global."""
@@ -190,6 +198,7 @@ class Edificio:
         self._crear_transformaciones()
         self._crear_columnas()
         self._crear_vigas()
+        self._crear_voladizos()
         self._crear_muros()
         self._crear_diafragmas()
         self._crear_arriostramientos()
@@ -309,6 +318,46 @@ class Edificio:
                     self.coord_viga[tag] = (n1, n2, "Y", ix, iy, k)
             self.vigas[lvl] = lista
         self.n_vigas = n_vigas
+
+    # -- voladizo (eje J) --------------------------------------------
+    def _crear_voladizos(self):
+        """Vigas cantilever del voladizo (eje J) en los niveles del
+        config.
+
+        Para cada voladizo se crea una viga cantilever en cada eje Y
+        indicado, desde el nodo de la grilla en 'desde_eje' (I') hasta
+        un nodo NUEVO en x_j_m (eje J), sin columnas bajo J (la losa
+        cuelga de sus vigas). Se guardan aparte de coord_viga."""
+        cfg = self.cfg
+        yc = self._ycoords()
+        n_vol = 0
+        for v in cfg.get("voladizos", {}).get("lista", []):
+            x0 = cfg["grilla_ejes"]["X"][v["desde_eje"]]
+            x1 = v["x_j_m"]
+            sal = v.get("ancho_saliente_m", 0.0)
+            seccion = v["seccion_viga"]
+            params = self.sec["vigas"][seccion]
+            for lvl in v["niveles"]:
+                k = self.levels.index(lvl)
+                z = self.z_level[lvl]
+                self.vol_saliente.setdefault(lvl, sal)
+                for eje_y in v["ejes_Y"]:
+                    iy = cfg["orden_y"].index(eje_y)
+                    y = yc[iy]
+                    # nodo raiz: en la grilla (eje 'desde_eje'), nivel k
+                    n0 = self.grid_node[(cfg["orden_x"].index(v["desde_eje"]),
+                                         iy, k)]
+                    n1 = self._add_node(x1, y, z)
+                    ops.node(n1, x1, y, z)
+                    tag = self._nelem()
+                    n_vol += 1
+                    ops.element("elasticBeamColumn", tag, n0, n1,
+                                *params, self._transf["viga_x"])
+                    L = float(x1 - x0)
+                    self.vol_vigas.setdefault(lvl, []).append(
+                        (tag, n0, n1, L, iy))
+                    self.vol_coord[tag] = (n0, n1, iy, k)
+        self.n_vol = n_vol
 
     # -- muros (wide column) -----------------------------------------
     def _crear_muros(self):
@@ -490,14 +539,27 @@ def areas_tributarias(cfg):
       * El 50% de cada direccion se divide a partes iguales entre las
         dos vigas paralelas (superior e inferior) que limitan el panel.
 
-    Devuelve un dict {nivel: {tag_viga: w_kN/m}} y las areas por
-    direccion para el QA. Las vigilas se identifican por (tipo, ix, iy).
+    El voladizo (eje J) se agrega como una franja de losa adicional en
+    los niveles indicados: su area (desde_eje hasta x_j+saliente,
+    sobre todo el ancho de ejes Y) se reparte 100% a la direccion X
+    (vigas cantilever) para que el balance de areas y de carga siga
+    siendo exacto por nivel.
+
+    Devuelve:
+      w_map     {nivel: {tag_viga: w_kN/m}}   (solo grilla base)
+      resumen   QA por nivel (agrega 'area_piso', 'carga_voladizo',
+                'area_voladizo')
+      area_piso_lvl  {nivel: m2} con el voladizo incluido
+      area_x, area_y totales globales (m2)
+      w_vol     {nivel: {iy: w_kN/m}}  carga en las vigas cantilever
     """
     xc = [cfg["grilla_ejes"]["X"][k] for k in cfg["orden_x"]]
     yc = [cfg["grilla_ejes"]["Y"][k] for k in cfg["orden_y"]]
     dx = [xc[i + 1] - xc[i] for i in range(len(xc) - 1)]
     dy = [yc[j + 1] - yc[j] for j in range(len(yc) - 1)]
     qG = {k: v for k, v in cfg["cargas"]["qG"].items() if k != "nota"}
+    area_piso_main = sum(dx) * sum(dy)
+    area_piso_lvl = {lvl: area_piso_main for lvl in cfg["orden_niveles"]}
 
     # identificador de viga: (tipo, iX, iY, nivel) -> w acumulado
     w = {}
@@ -527,20 +589,47 @@ def areas_tributarias(cfg):
                     w[key] = w.get(key, 0.0) + w_y
                     area_y += w_y * dy[j] / q if q else 0.0
                     area_y_lvl += w_y * dy[j] / q if q else 0.0
-        area_piso = sum(dx) * sum(dy)
         total = sum(w[(t, i, j, lvl)] * (dx[i] if t == "X" else dy[j])
                     for (t, i, j, ll) in w if ll == lvl)
         resumen[lvl] = {"qG": qG[lvl], "carga_total": total,
                         "area_trib_X": area_x_lvl, "area_trib_Y": area_y_lvl,
+                        "area_piso": area_piso_lvl[lvl],
+                        "carga_voladizo": 0.0, "area_voladizo": 0.0,
                         "suma_w_x": sum(w[(t, i, j, lvl)] for (t, i, j, ll) in w
                                         if ll == lvl and t == "X"),
                         "suma_w_y": sum(w[(t, i, j, lvl)] for (t, i, j, ll) in w
                                         if ll == lvl and t == "Y")}
-    return w, resumen, area_piso, area_x, area_y
+
+    # --- Voladizo (eje J): franja de losa cantilever ---------------
+    w_vol = {}
+    for v in cfg.get("voladizos", {}).get("lista", []):
+        x0 = cfg["grilla_ejes"]["X"][v["desde_eje"]]
+        x1 = v["x_j_m"]
+        sal = v.get("ancho_saliente_m", 0.0)
+        width_x = (x1 + sal) - x0
+        yv = [cfg["grilla_ejes"]["Y"][e] for e in v["ejes_Y"]]
+        hgt = max(yv) - min(yv)
+        A_v = width_x * hgt
+        L_total_vigas = (x1 - x0) * len(v["ejes_Y"])
+        for lvl in v["niveles"]:
+            q = qG[lvl]
+            area_piso_lvl[lvl] += A_v
+            area_x += A_v
+            resumen[lvl]["area_piso"] = area_piso_lvl[lvl]
+            resumen[lvl]["carga_total"] += q * A_v
+            resumen[lvl]["area_trib_X"] += A_v   # 100% carga a vigas cantilever
+            resumen[lvl]["carga_voladizo"] += q * A_v
+            resumen[lvl]["area_voladizo"] += A_v
+            w_m = q * A_v / L_total_vigas   # distribuida en las vigas J
+            w_vol[lvl] = {cfg["orden_y"].index(e): w_m for e in v["ejes_Y"]}
+    return w, resumen, area_piso_lvl, area_x, area_y, w_vol
 
 
-def aplicar_cargas(cfg, edificio, w_map):
+def aplicar_cargas(cfg, edificio, w_map, w_vol=None):
     """Aplica las cargas tributarias (eleLoad) y las puntuales.
+
+    w_vol: {nivel: {iy: w_kN/m}} con la carga de las vigas cantilever
+    del voladizo.
 
     Devuelve la carga vertical total aplicada (suma de las cargas de
     losa sobre vigas + puntuales) para la verificacion de conservacion.
@@ -560,6 +649,16 @@ def aplicar_cargas(cfg, edificio, w_map):
         p2 = np.array(edificio.nodos[n2])
         L = float(np.linalg.norm(p2 - p1))
         total += w_val * L
+    # Cargas del voladizo (vigas cantilever I'->J)
+    if w_vol:
+        for lvl, beams in edificio.vol_vigas.items():
+            w_lvl = w_vol.get(lvl, {})
+            for (tag, n1, n2, L, iy) in beams:
+                w_val = w_lvl.get(iy, 0.0)
+                if w_val:
+                    ops.eleLoad("-ele", tag, "-type",
+                                "-beamUniform", 0.0, -w_val)
+                    total += w_val * L
     # Cargas puntuales
     for p in cfg["cargas"]["puntuales"]:
         peso_kN = p["peso_kg"] * cfg["cargas"]["g"] / 1000.0 * p["factor"]
@@ -675,7 +774,7 @@ def analizar():
 # 5. VERIFICACION QA Y EXPORTACION CSV
 # =====================================================================
 
-def qa_verificacion(cfg, edificio, resumen, area_piso, area_x, area_y,
+def qa_verificacion(cfg, edificio, resumen, area_piso_lvl, area_x, area_y,
                     carga_aplicada):
     """Imprime en consola las verificaciones en formato CSV."""
     S = "=" * 78
@@ -690,24 +789,39 @@ def qa_verificacion(cfg, edificio, resumen, area_piso, area_x, area_y,
     for lvl in cfg["orden_niveles"]:
         r = resumen[lvl]
         tot_losa += r["carga_total"]
-        area = area_piso
+        area = r["area_piso"]
         print(f"{lvl},{r['qG']:.3f},{r['carga_total']:.3f},{area:.3f},"
               f"{r['suma_w_x']:.3f},{r['suma_w_y']:.3f}")
     print(f"TOTAL_LOZAS,{sum(cfg['cargas']['qG'][l] for l in cfg['orden_niveles']):.3f},"
           f"{tot_losa:.3f},,,")
 
     print("\n# verificacion_areas_tributarias")
-    print("area_piso_losa_teorica_m2,{:.6f}".format(area_piso))
+    print("area_piso_losa_teorica_m2,{:.6f}".format(
+        resumen[cfg["orden_niveles"][0]]["area_piso"]))
     print("# nivel,area_tributaria_dirX_m2,area_tributaria_dirY_m2,total_m2,"
           "igual_a_area_piso")
     for lvl in cfg["orden_niveles"]:
         r = resumen[lvl]
         tot = r["area_trib_X"] + r["area_trib_Y"]
-        ok = "SI" if abs(tot - area_piso) < 1e-6 else "NO"
+        ok = "SI" if abs(tot - r["area_piso"]) < 1e-6 else "NO"
         print(f"{lvl},{r['area_trib_X']:.6f},{r['area_trib_Y']:.6f},{tot:.6f},{ok}")
     print(f"TOTAL_DIRX_TODOS_PISOS_m2,{area_x:.6f}")
     print(f"TOTAL_DIRY_TODOS_PISOS_m2,{area_y:.6f}")
     print(f"niveles,{len(cfg['orden_niveles'])}")
+
+    # --- Voladizo (eje J) -------------------------------------------
+    has_vol = any(r["area_voladizo"] > 0 for r in resumen.values())
+    if has_vol:
+        print("\n# voladizo_eje_J")
+        print("nivel,area_losa_voladizo_m2,carga_losa_voladizo_kN,"
+              "porcentaje_area_piso_pct")
+        for lvl in cfg["orden_niveles"]:
+            r = resumen[lvl]
+            if r["area_voladizo"] <= 0:
+                continue
+            pct = 100.0 * r["area_voladizo"] / r["area_piso"]
+            print(f"{lvl},{r['area_voladizo']:.3f},"
+                  f"{r['carga_voladizo']:.3f},{pct:.2f}")
 
     # --- Reacciones basales -----------------------------------------
     reacs = {}
@@ -816,6 +930,21 @@ def visualizar(edificio, cfg, ruta=None):
         p1 = _coord(edificio, n2)
         ax.plot(*zip(p0, p1), color="tab:blue", lw=2.5, alpha=0.7)
 
+    # ---- Voladizo (eje J): vigas cantilever + losa saliente + parapeto
+    for lvl, beams in edificio.vol_vigas.items():
+        sal = edificio.vol_saliente.get(lvl, 0.0)
+        for (tag, n1, n2, L, iy) in beams:
+            x1, y1, z1 = _coord(edificio, n2)
+            p0 = _coord(edificio, n1)
+            ax.plot(*zip(p0, (x1, y1, z1)), color="tab:blue", lw=3.2,
+                    alpha=0.9)
+            # losa saliente: del eje J a J+sal
+            ax.plot([x1, x1 + sal], [y1, y1], [z1, z1],
+                    color="tab:pink", lw=2.2, alpha=0.9)
+            # parapeto 0.75 m en el borde
+            ax.plot([x1 + sal, x1 + sal], [y1, y1],
+                    [z1, z1 + 0.75], color="tab:purple", lw=3, alpha=0.8)
+
     # ---- Diagonales (verde): patron X en porticos exteriores
     ar = cfg["arriostramientos"]
     ks = niveles.index(ar["desde_nivel"])
@@ -883,6 +1012,8 @@ def visualizar(edificio, cfg, ruta=None):
         Line2D([0], [0], color="tab:blue", lw=2.5, label="Vigas"),
         Line2D([0], [0], color="tab:green", lw=2, label="Diagonales (X)"),
         Line2D([0], [0], color="tab:orange", lw=4, label="Muro de corte"),
+        Line2D([0], [0], color="tab:pink", lw=2.2, label="Losa voladizo (eje J)"),
+        Line2D([0], [0], color="tab:purple", lw=3, label="Parapeto"),
     ]
     ax.legend(handles=legend, loc="upper right", fontsize=9)
     ax.set_title("Edificio institucional - deformada por gravedad "
@@ -900,8 +1031,8 @@ def visualizar(edificio, cfg, ruta=None):
 # 6b. EXPORTACION JSON PARA EL VIEWER (UNITY)
 # =====================================================================
 
-def exportar_json(edificio, cfg, resumen, area_piso, area_x, area_y,
-                  w_map, carga_aplicada):
+def exportar_json(edificio, cfg, resumen, area_piso_lvl, area_x, area_y,
+                  w_map, w_vol, carga_aplicada):
     """Exporta el modelo y sus verificaciones a JSON legibles por el
     viewer/Unity. No modifica el analisis ya realizado.
 
@@ -955,6 +1086,25 @@ def exportar_json(edificio, cfg, resumen, area_piso, area_x, area_y,
             "hasta_nivel": m["hasta_nivel"],
             "seccion": seccion, "material": materia_m,
             "espesor": cfg["secciones_tipo"]["muros"][seccion]["t"]})
+    # Vigas cantilever del voladizo (eje J)
+    secc_vol = cfg["secciones_tipo"]["vigas"]
+    for lvl, beams in edificio.vol_vigas.items():
+        for (tag, n1, n2, L, iy) in beams:
+            vv = next(v for v in cfg["voladizos"]["lista"]
+                      if lvl in v["niveles"])
+            seccion = vv["seccion_viga"]
+            material = secc_vol[seccion]["material"]
+            c0 = np.array(edificio.nodos[n1])
+            c1 = np.array(edificio.nodos[n2])
+            elementos.append({
+                "elementTag": tag, "tipo": "viga", "es_voladizo": True,
+                "n1": n1, "n2": n2, "nivel": lvl,
+                "seccion": seccion, "material": material,
+                "transf": edificio._transf["viga_x"],
+                "orientacion": "X",
+                "desde_eje": vv["desde_eje"], "hasta_eje": vv["hasta_eje"],
+                "eje_Y": cfg["orden_y"][iy], "k": edificio.vol_coord[tag][3],
+                "L": float(np.linalg.norm(c1 - c0))})
     _write(EXPORT_DIR / "elementos.json",
            {"nodos": list(edificio.nodos.keys()), "elementos": elementos})
 
@@ -995,10 +1145,30 @@ def exportar_json(edificio, cfg, resumen, area_piso, area_x, area_y,
             "carga_losa_kN": w * Lr})
     _write(EXPORT_DIR / "tributarias.json", {
         "qG": {k: v for k, v in cfg["cargas"]["qG"].items() if k != "nota"},
-        "area_piso_m2": area_piso,
+        "area_piso_m2": {lvl: area_piso_lvl[lvl]
+                         for lvl in cfg["orden_niveles"]},
         "carga_total_losa_kN": sum(r["carga_total"] for r in resumen.values()),
         "carga_puntual_kN": carga_aplicada
                             - sum(r["carga_total"] for r in resumen.values()),
+        "voladizo": {
+            "descripcion": cfg["voladizos"].get("nota", ""),
+            "por_nivel": [
+                {"nivel": lvl, "area_losa_voladizo_m2": r["area_voladizo"],
+                 "carga_losa_voladizo_kN": r["carga_voladizo"]}
+                for lvl, r in resumen.items() if r["area_voladizo"] > 0],
+            "vigas_cantilever": [
+                {"elementTag": tag, "nivel": lvl,
+                 "eje_Y": cfg["orden_y"][iy],
+                 "desde_m": cfg["grilla_ejes"]["X"][
+                     vv["desde_eje"]],
+                 "hasta_m": vv["x_j_m"],
+                 "saliente_m": edificio.vol_saliente.get(lvl, 0.0),
+                 "longitud_m": L,
+                 "w_kN_m": w_vol[lvl][iy] if w_vol and lvl in w_vol
+                            and iy in w_vol[lvl] else 0.0}
+                for lvl, beams in edificio.vol_vigas.items()
+                for (tag, n1, n2, L, iy) in beams
+                for vv in cfg["voladizos"]["lista"] if lvl in vv["niveles"]]},
         "vigas": trib})
 
     # ---- 7. VERIFICACIONES ----------------------------------------
@@ -1013,12 +1183,13 @@ def exportar_json(edificio, cfg, resumen, area_piso, area_x, area_y,
         "carga_por_piso": [
             {"nivel": lvl, "qG_kN_m2": resumen[lvl]["qG"],
              "carga_losa_kN": resumen[lvl]["carga_total"],
-             "area_piso_m2": area_piso,
+             "area_piso_m2": resumen[lvl]["area_piso"],
              "area_trib_X": resumen[lvl]["area_trib_X"],
              "area_trib_Y": resumen[lvl]["area_trib_Y"],
+             "area_voladizo_m2": resumen[lvl]["area_voladizo"],
              "igual_a_area_piso":
                  abs(resumen[lvl]["area_trib_X"] + resumen[lvl]["area_trib_Y"]
-                     - area_piso) < 1e-6}
+                     - resumen[lvl]["area_piso"]) < 1e-6}
             for lvl in cfg["orden_niveles"]],
         "conservacion_carga": {
             "carga_total_aplicada_kN": carga_aplicada,
@@ -1057,19 +1228,20 @@ def main():
     print(f"\nCargando config: {ruta}")
 
     # Areas tributarias (antes de construir, para saber cargas)
-    w_map, resumen, area_piso, area_x, area_y = areas_tributarias(cfg)
+    w_map, resumen, area_piso_lvl, area_x, area_y, w_vol = \
+        areas_tributarias(cfg)
 
     # Construir modelo
     print("\n[1] Construyendo modelo...")
     ed = Edificio(cfg)
     ed.construir()
     print(f"    {len(ed.nodos)} nodos | {ed.n_cols} columnas | "
-          f"{ed.n_vigas} vigas | {ed.n_diag} diagonales | "
-          f"{len(ed.muro_info)} muros")
+          f"{ed.n_vigas} vigas | {ed.n_vol} vigas-voladizo | "
+          f"{ed.n_diag} diagonales | {len(ed.muro_info)} muros")
 
     # Cargas
     print("\n[2] Aplicando cargas (areas tributarias + puntuales)...")
-    carga_aplicada = aplicar_cargas(cfg, ed, w_map)
+    carga_aplicada = aplicar_cargas(cfg, ed, w_map, w_vol)
     print(f"    Carga total aplicada: {carga_aplicada:.4f} kN")
 
     # Analisis
@@ -1079,7 +1251,8 @@ def main():
 
     # QA
     print("\n[4] Verificacion QA / exportacion CSV:")
-    qa_verificacion(cfg, ed, resumen, area_piso, area_x, area_y, carga_aplicada)
+    qa_verificacion(cfg, ed, resumen, area_piso_lvl, area_x, area_y,
+                    carga_aplicada)
 
     # Visualizacion 3D con deformada
     print("\n[5] Generando vista 3D con deformada por gravedad...")
@@ -1088,8 +1261,8 @@ def main():
 
     # Exportacion JSON para el viewer/Unity
     print("\n[6] Exportando modelo/verificaciones a JSON (Unity viewer)...")
-    ruta_exp = exportar_json(ed, cfg, resumen, area_piso, area_x, area_y,
-                             w_map, carga_aplicada)
+    ruta_exp = exportar_json(ed, cfg, resumen, area_piso_lvl, area_x, area_y,
+                             w_map, w_vol, carga_aplicada)
     print(f"    Exportados en: {ruta_exp}")
     for f in sorted(ruta_exp.iterdir()):
         print(f"      {f.name}")
